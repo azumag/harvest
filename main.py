@@ -1,9 +1,9 @@
 import os
 import sys
 from time import sleep
-
 import ccxt
 import slackweb
+from pyti.exponential_moving_average import exponential_moving_average as ema
 
 def read_environ(key, default):
     if key in os.environ:
@@ -18,18 +18,25 @@ def log(*args):
 # ----- CONFIGURATION -----#
 slack_url = read_environ('SLACK_URL', None)
 slack = slackweb.Slack(url=slack_url)
+exchanger_name = 'bitbank'
+#exchanger_name = 'bitflyer'
 
-profit_threshold = int(read_environ('PROFIT_THRESHOLD', 0))
-interval = int(read_environ('INTERVAL', 10))
-payment = int(read_environ('PAYMENT', 1000000))
+PAYMENT = float(read_environ('PAYMENT', 0.0001))
+PERIOD = int(read_environ('PERIOD', 3))
+DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', 0.0000001))
+DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', 0.0000001))
+API_KEY = read_environ('API_KEY', None)
+SECRET = read_environ('SECRET', None)
 
-## get exchange lists (you can specify it by using ENV)
-exchanges = read_environ('LIST', 'bitbank, bitflyer, quoinex, zaif, coincheck')
-exchange_list = [x.strip() for x in exchanges.split(',')]
-log(exchange_list) # exchange_list = ccxt.exchanges
+# --- globals ----
+exchanger = eval('ccxt.' + exchanger_name + "({ 'apiKey': API_KEY, 'secret': SECRET })")
 
-def find_diff(n):
-    return n[4]
+rates = []
+trend = None
+SYMBOL = 'BTC/JPY'
+status = {}
+bought_status = {}
+sold_status = {}
 
 def get_ticker(exchange):
     orderbook = exchange.fetch_order_book ('BTC/JPY')
@@ -38,12 +45,9 @@ def get_ticker(exchange):
     spread = (ask - bid) if (bid and ask) else None
     return ask, bid, spread
 
-def chance_notification(maxset, profit, buy_btc, trans_btc, sell_jpy):
-    notify('', '*Chance!*',
-     "Profit: _"+str(profit)+"_ JPY when _"+str(payment)+"_ JPY\nbuy: `"+ maxset[0] +"` _"+str(buy_btc)+"_ btc \n sell: `"+ maxset[1] + "` _"+str(sell_jpy)+"_ jpy",
-     ["text", "pretext"])
-
 def notify(title, pretext, text, mrkdwn_in):
+    if slack_url == None:
+        return
     attachments = []
     attachment = {"title": title, "pretext": pretext, "text": text, "mrkdwn_in": mrkdwn_in}
     attachments.append(attachment)
@@ -51,55 +55,107 @@ def notify(title, pretext, text, mrkdwn_in):
     log(attachments)
 
 def main():
-    try:
-        diffs = []
-        for exchange_a in exchange_list:
-            exchangea = eval('ccxt.' + exchange_a + '()')
-            ask_a, bid_a, spread_a = get_ticker(exchangea)
-            log(exchange_a, ask_a, bid_a)
-            for exchange_b in exchange_list:
-                if exchange_a == exchange_b:
-                    continue
-                exchangeb = eval('ccxt.' + exchange_b + '()')
-                ask_b, bid_b, spread_b = get_ticker(exchangeb)
-                log('  ', exchange_b, ask_b, bid_b, ask_b-bid_a)
-                diffs.append([exchange_a, exchange_b, bid_a, ask_b, (ask_b - bid_a)])
+    global trend
+    state = 'start'
 
-        maxset = max(diffs, key=find_diff)
-        # trade_fee_buy  = eval('ccxt.' + maxset[0] + '("btc/jpy")').fetchtradingfees.rate
-        # trade_fee_sell = eval('ccxt.' + maxset[1] + '("btc/jpy")').fetchtradingfees.rate
-        # trans_fee_btc  = eval('ccxt.' + maxset[0] + '("btc")').fetchfundingfees.rate
-        # trans_fee_jpy  = eval('ccxt.' + maxset[1] + '("jpy")').fetchfundingfees.rate
-        trade_fee_buy = 0.001
-        trade_fee_sell = 0.001
-        trans_fee_jpy = 540
-        trans_fee_btc = 0.0005
-        log("===== profit ===== ")
-        log(maxset[4])
-        profit, buy_btc, trans_btc, sell_jpy = calc_profit(payment, maxset[2], maxset[3], trade_fee_buy, trade_fee_sell, trans_fee_btc, trans_fee_jpy)
-        log(profit)
-        log("================== ")
-        if profit >= profit_threshold:
+    while True:
+        try:
+            log('====', state, '====')
+            trend = check_trend()
+            state = eval(state+"()")
+        except:
             if slack_url:
-                chance_notification(maxset, profit, buy_btc, trans_btc, sell_jpy)
-    except:
-        if slack_url:
-            notify('Detail', 'ERROR RAISED', str(sys.exc_info()), ['text', 'pretext'])
+                notify('Detail', 'ERROR RAISED', str(sys.exc_info()), ['text', 'pretext'])
+            else:
+                log('ERROR RAISED' + str(sys.exc_inf()))
+            return 1
+        sleep(1)
 
-def calc_profit(payment, buy_rate, sell_rate, trade_fee_buy, trade_fee_sell, trans_fee_btc, trans_fee_jpy):
-    buy_btc = (payment/buy_rate) - ((payment/buy_rate) * trade_fee_buy)
-    log("buy btc: " + str(buy_btc))
-    trans_btc = buy_btc - trans_fee_btc
-    log("trans btc: " + str(trans_btc))
-    sell_jpy = (trans_btc-(trans_btc * trade_fee_sell)) * sell_rate
-    log("sell_jpy: " + str(sell_jpy))
+def start():
+    return 'neutral'
 
-    profit = (sell_jpy-payment) - trans_fee_jpy
-    return profit, buy_btc, trans_btc, sell_jpy
+def neutral():
+    state = 'neutral'
+    if trend == "UP":
+        state = 'buy'
+    return state
+
+def buy():
+    global status
+    global bought_status
+    state = 'buy'
+    status = exchanger.create_order(SYMBOL, 'market', 'buy', PAYMENT, 0)
+    log(status)
+    status = wait_to_fill()
+    if status:
+        state = 'bought'
+        notify(state, 'BotEvent', str(status), ["text", "pretext"])
+        bought_status = status
+    return state
+
+def bought():
+    state = 'bought'
+    if trend == 'DOWN':
+        state = 'sell'
+    return state
+
+def sell():
+    global status
+    global sold_status
+    state = 'sell'
+    status = exchanger.create_order(SYMBOL, 'market', 'sell', PAYMENT, 0)
+    log(status)
+    status = wait_to_fill()
+    if status:
+        state = 'sold'
+        notify(state, 'BotEvent', str(status), ["text", "pretext"])
+        sold_status = status
+    return state
+
+def sold():
+    state = 'sold'
+    bought_price = bought_status['cost']
+    sold_price = bought_status['cost']
+    profit = sold_price - bought_price
+    notify(state, 'profit', str(profit), ["text", "pretext"])
+    state = 'neutral'
+    return state
+
+def wait_to_fill():
+    log('### Waiting to Fill')
+    while True:
+        sleep(1)
+        order = exchanger.fetch_order(status['id'], SYMBOL)
+        log(order)
+        if order['status'] == 'closed':
+            break
+    print('### FILLED')
+    return order
+
+def check_trend():
+    global rates
+    result = [0]
+    change_rate = 0
+    trend = 'NONE'
+    ticker = exchanger.fetch_ticker(SYMBOL)
+    last = ticker['last']
+    ask, bid, spread = get_ticker(exchanger)
+    rates.append(last)
+    if len(rates) >= PERIOD:
+        result = ema(rates, PERIOD)
+        change_rate = (result[-1] / result[-2])
+        trend = "UP" if (1 + DECISION_RATE_UP < change_rate) else "DOWN" if (1 - DECISION_RATE_DOWN > change_rate) else "NONE"
+    log(ask, last, bid, spread, result[-1], change_rate, trend)
+    return trend
+
+def show_options():
+    return "PAYMENT: " + str(PAYMENT) + "\n" \
+        "PERIOD: " + str(PERIOD) + "\n" \
+        "DECISION_RATE_UP: " + str(DECISION_RATE_UP) + "\n" \
+        "DECISION_RATE_DOWN: " + str(DECISION_RATE_DOWN) + "\n" \
 
 if slack_url:
-    notify('Configurations', 'Arbitrage bot started', "Price Threshold: "+ str(profit_threshold) +"\n" + "LIST: " + ", ".join(exchange_list), ["text", "pretext"])
+    notify('Configurations', 'bot started', show_options(), ["text", "pretext"])
 
-while True:
-    main()
-    sleep(interval)
+
+main()

@@ -1,0 +1,4 @@
+ccxt==1.17.363
+slackweb==1.0.5
+pyti
+PrettyTable 
