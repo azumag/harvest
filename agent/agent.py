@@ -1,9 +1,11 @@
 import os
 import sys
+import time
 from time import sleep
 import ccxt
 import slackweb
 from pyti.exponential_moving_average import exponential_moving_average as ema
+import random
 
 def read_environ(key, default):
     if key in os.environ:
@@ -21,10 +23,13 @@ slack = slackweb.Slack(url=slack_url)
 exchanger_name = 'bitbank'
 #exchanger_name = 'bitflyer'
 
-PAYMENT = float(read_environ('PAYMENT', 0.0001))
-PERIOD = int(read_environ('PERIOD', 3))
-DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', 0.0000001))
-DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', 0.0000001))
+INSTANCE_COST = float(read_environ('INSTANCE_COST', 0.0002))
+LIFE = int(read_environ('LIFE', random.randrange(17)))
+INTERVAL = int(read_environ('INTERVAL', random.randrange(60)))
+PAYMENT = float(read_environ('PAYMENT', 0.0001*random.randrange(10)))
+PERIOD = int(read_environ('PERIOD', random.randrange(256)))
+DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', (0.0000001*random.randrange(10000000))))
+DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', (0.0000001*random.randrange(10000000))))
 API_KEY = read_environ('API_KEY', None)
 SECRET = read_environ('SECRET', None)
 
@@ -37,6 +42,18 @@ SYMBOL = 'BTC/JPY'
 status = {}
 bought_status = {}
 sold_status = {}
+total_profit = 0
+start_time = time.time()
+total_cost = 0
+
+def show_options():
+    return "PAYMENT: " + str(PAYMENT) + "\n" \
+        "PERIOD: " + str(PERIOD) + "\n" \
+        "DECISION_RATE_UP: " + str(DECISION_RATE_UP) + "\n" \
+        "DECISION_RATE_DOWN: " + str(DECISION_RATE_DOWN) + "\n" \
+        "SLEEP: " + str(INTERVAL) + "\n" \
+        "LIFE: " + str(LIFE) + "\n" \
+
 
 def get_ticker(exchange):
     orderbook = exchange.fetch_order_book ('BTC/JPY')
@@ -56,27 +73,40 @@ def notify(title, pretext, text, mrkdwn_in):
 
 def main():
     global trend
+    global total_cost
     state = 'start'
 
     while True:
         try:
             log('====', state, '====')
+            now = time.time()
+            lifetime = now - start_time
+            total_cost = INSTANCE_COST * lifetime
+            log("Life Time [sec]: COST", lifetime, total_cost)
             trend = check_trend()
             state = eval(state+"()")
+            if state == 'die':
+                notify('DIED', '', show_options(), ['text', 'pretext']) 
+                log('DIED', '', show_options()) 
+                break
         except:
             if slack_url:
                 notify('Detail', 'ERROR RAISED', str(sys.exc_info()), ['text', 'pretext'])
-            else:
-                log('ERROR RAISED' + str(sys.exc_inf()))
+            log('ERROR RAISED' + str(sys.exc_inf()))
+            traceback.print_exc()
             return 1
-        sleep(1)
+        sleep(INTERVAL)
 
 def start():
     return 'neutral'
 
 def neutral():
     state = 'neutral'
-    if trend == "UP":
+    if total_profit < 0:
+        state = 'die'
+    elif ((total_profit+LIFE) - total_cost) < 0:
+        state = 'die'
+    elif trend == "UP":
         state = 'buy'
     return state
 
@@ -113,18 +143,25 @@ def sell():
     return state
 
 def sold():
+    global total_profit
     state = 'sold'
     bought_price = bought_status['cost']
-    sold_price = bought_status['cost']
+    sold_price = sold_status['cost']
     profit = sold_price - bought_price
-    notify(state, 'profit', str(profit), ["text", "pretext"])
+    total_profit += profit
+    log(bought_price, sold_price, profit, total_profit)
+    notify(state, 'profit', \
+            "Profit: " + str(profit) + \
+            "\n Total: " + str(total_profit) + \
+            "\n Cost: " + str(total_cost) \
+            , ["text", "pretext"])
     state = 'neutral'
     return state
 
 def wait_to_fill():
     log('### Waiting to Fill')
     while True:
-        sleep(1)
+        sleep(INTERVAL)
         order = exchanger.fetch_order(status['id'], SYMBOL)
         log(order)
         if order['status'] == 'closed':
@@ -147,12 +184,6 @@ def check_trend():
         trend = "UP" if (1 + DECISION_RATE_UP < change_rate) else "DOWN" if (1 - DECISION_RATE_DOWN > change_rate) else "NONE"
     log(ask, last, bid, spread, result[-1], change_rate, trend)
     return trend
-
-def show_options():
-    return "PAYMENT: " + str(PAYMENT) + "\n" \
-        "PERIOD: " + str(PERIOD) + "\n" \
-        "DECISION_RATE_UP: " + str(DECISION_RATE_UP) + "\n" \
-        "DECISION_RATE_DOWN: " + str(DECISION_RATE_DOWN) + "\n" \
 
 if slack_url:
     notify('Configurations', 'bot started', show_options(), ["text", "pretext"])
