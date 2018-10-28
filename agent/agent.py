@@ -85,7 +85,7 @@ def main():
             log("Life Time [sec]: COST", lifetime, total_cost)
             trend = check_trend()
             state = eval(state+"()")
-            if check_life:
+            if check_life():
                 died_clean(state)
                 notify('DIED', '', show_options(), ['text', 'pretext']) 
                 log('DIED', '', show_options()) 
@@ -104,7 +104,7 @@ def died_clean(state):
         sold()
 
 def check_life():
-    return (total_profit < 0) || (((total_profit+LIFE) - total_cost) < 0)
+    return (total_profit < 0) or (((total_profit+LIFE) - total_cost) < 0)
 
 def start():
     return 'neutral'
