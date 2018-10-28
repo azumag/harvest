@@ -28,8 +28,8 @@ LIFE = int(read_environ('LIFE', random.randrange(17)))
 INTERVAL = int(read_environ('INTERVAL', random.randrange(60)))
 PAYMENT = float(read_environ('PAYMENT', 0.0001*random.randrange(10)))
 PERIOD = int(read_environ('PERIOD', random.randrange(256)))
-DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', (0.0000001*random.randrange(10000))))
-DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', (0.0000001*random.randrange(10000))))
+DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', (0.00000001*random.randrange(10000))))
+DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', (0.00000001*random.randrange(10000))))
 API_KEY = read_environ('API_KEY', None)
 SECRET = read_environ('SECRET', None)
 
@@ -85,7 +85,8 @@ def main():
             log("Life Time [sec]: COST", lifetime, total_cost)
             trend = check_trend()
             state = eval(state+"()")
-            if state == 'die':
+            if check_life:
+                died_clean(state)
                 notify('DIED', '', show_options(), ['text', 'pretext']) 
                 log('DIED', '', show_options()) 
                 break
@@ -97,16 +98,20 @@ def main():
             return 1
         sleep(INTERVAL)
 
+def died_clean(state):
+    if state == 'bought':
+        sell()
+        sold()
+
+def check_life():
+    return (total_profit < 0) || (((total_profit+LIFE) - total_cost) < 0)
+
 def start():
     return 'neutral'
 
 def neutral():
     state = 'neutral'
-    if total_profit < 0:
-        state = 'die'
-    elif ((total_profit+LIFE) - total_cost) < 0:
-        state = 'die'
-    elif trend == "UP":
+    if trend == "UP":
         state = 'buy'
     return state
 
