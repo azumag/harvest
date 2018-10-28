@@ -33,6 +33,8 @@ DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', (0.00000001*random
 API_KEY = read_environ('API_KEY', None)
 SECRET = read_environ('SECRET', None)
 
+sleep(INTERVAL)
+
 # --- globals ----
 exchanger = eval('ccxt.' + exchanger_name + "({ 'apiKey': API_KEY, 'secret': SECRET })")
 
