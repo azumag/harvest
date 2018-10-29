@@ -6,6 +6,7 @@ import ccxt
 import slackweb
 from pyti.exponential_moving_average import exponential_moving_average as ema
 import random
+import uuid
 
 def read_environ(key, default):
     if key in os.environ:
@@ -26,10 +27,10 @@ exchanger_name = 'bitbank'
 INSTANCE_COST = float(read_environ('INSTANCE_COST', 0.0002))
 LIFE = int(read_environ('LIFE', random.randrange(17)))
 INTERVAL = int(read_environ('INTERVAL', random.randrange(60)))
-PAYMENT = float(read_environ('PAYMENT', 0.0001*random.randrange(10)))
+PAYMENT = float(read_environ('PAYMENT', 0.0001*random.randrange(100)))
 PERIOD = int(read_environ('PERIOD', random.randrange(256)))
-DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', (0.00000001*random.randrange(10000))))
-DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', (0.00000001*random.randrange(10000))))
+DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', (0.00000001*random.randrange(100000))))
+DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', (0.00000001*random.randrange(100000))))
 API_KEY = read_environ('API_KEY', None)
 SECRET = read_environ('SECRET', None)
 
@@ -37,6 +38,8 @@ sleep(INTERVAL)
 
 # --- globals ----
 exchanger = eval('ccxt.' + exchanger_name + "({ 'apiKey': API_KEY, 'secret': SECRET })")
+
+uuid = str(uuid.uuid1()) 
 
 rates = []
 trend = None
@@ -49,12 +52,14 @@ start_time = time.time()
 total_cost = 0
 
 def show_options():
-    return "PAYMENT: " + str(PAYMENT) + "\n" \
+    return "`" + uuid + "`\n" \
+        "PAYMENT: " + str(PAYMENT) + "\n" \
         "PERIOD: " + str(PERIOD) + "\n" \
         "DECISION_RATE_UP: " + str(DECISION_RATE_UP) + "\n" \
         "DECISION_RATE_DOWN: " + str(DECISION_RATE_DOWN) + "\n" \
         "SLEEP: " + str(INTERVAL) + "\n" \
         "LIFE: " + str(LIFE) + "\n" \
+        "TOTAL: " + str(total_profit) + "\n" \
 
 
 def get_ticker(exchange):
@@ -89,12 +94,12 @@ def main():
             state = eval(state+"()")
             if check_life():
                 died_clean(state)
-                notify('DIED', '', show_options(), ['text', 'pretext']) 
-                log('DIED', '', show_options()) 
+                notify('DIED', uuid, show_options(), ['text', 'pretext']) 
+                log('DIED', uuid, show_options()) 
                 break
         except:
             if slack_url:
-                notify('Detail', 'ERROR RAISED', str(sys.exc_info()), ['text', 'pretext'])
+                notify(uuid, 'ERROR RAISED', str(sys.exc_info()), ['text', 'pretext'])
             log('ERROR RAISED' + str(sys.exc_inf()))
             traceback.print_exc()
             return 1
@@ -126,7 +131,7 @@ def buy():
     status = wait_to_fill()
     if status:
         state = 'bought'
-        notify(state, 'BotEvent', str(status), ["text", "pretext"])
+        notify(uuid, 'BotEvent', str(status), ["text", "pretext"])
         bought_status = status
     return state
 
@@ -145,7 +150,7 @@ def sell():
     status = wait_to_fill()
     if status:
         state = 'sold'
-        notify(state, 'BotEvent', str(status), ["text", "pretext"])
+        notify(uuid, 'BotEvent', str(status), ["text", "pretext"])
         sold_status = status
     return state
 
@@ -157,7 +162,7 @@ def sold():
     profit = sold_price - bought_price
     total_profit += profit
     log(bought_price, sold_price, profit, total_profit)
-    notify(state, 'profit', \
+    notify(uuid, 'profit', \
             "Profit: " + str(profit) + \
             "\n Total: " + str(total_profit) + \
             "\n Cost: " + str(total_cost) \
