@@ -25,12 +25,12 @@ exchanger_name = 'bitbank'
 #exchanger_name = 'bitflyer'
 
 INSTANCE_COST = float(read_environ('INSTANCE_COST', 0.0002))
-LIFE = int(read_environ('LIFE', random.randrange(17)))
-INTERVAL = int(read_environ('INTERVAL', random.randrange(60)))
-PAYMENT = float(read_environ('PAYMENT', 0.0001*random.randrange(100)))
-PERIOD = int(read_environ('PERIOD', random.randrange(256)))
-DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', (0.00000001*random.randrange(100000))))
-DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', (0.00000001*random.randrange(100000))))
+LIFE = int(read_environ('LIFE', random.gauss(8, 8)))
+INTERVAL = int(read_environ('INTERVAL', random.gauss(60, 60)))
+PAYMENT = float(read_environ('PAYMENT', 0.0001*random.gauss(100, 100)))
+PERIOD = int(read_environ('PERIOD', random.gauss(256, 256)))
+DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', (0.00000001*random.gauss(10000, 10000))))
+DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', (0.00000001*random.gauss(10000, 10000))))
 API_KEY = read_environ('API_KEY', None)
 SECRET = read_environ('SECRET', None)
 
