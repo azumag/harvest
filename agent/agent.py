@@ -64,6 +64,7 @@ def show_options():
         "DECISION_RATE_DOWN: " + str(DECISION_RATE_DOWN) + "\n" \
         "SLEEP: " + str(INTERVAL) + "\n" \
         "LIFE: " + str(LIFE) + "\n" \
+        "RATE_SIZE_MAX: " + str(RATE_SIZE_MAX) + "\n" \
 
 
 def get_ticker(exchange):
