@@ -201,7 +201,7 @@ def check_trend():
         change_rate = (result[-1] / result[-2])
         trend = "UP" if (1 + DECISION_RATE_UP < change_rate) else "DOWN" if (1 - DECISION_RATE_DOWN > change_rate) else "NONE"
         
-    if len(rates) > RATES_SIZE_MAX
+    if len(rates) > RATES_SIZE_MAX:
         rates.pop(0)
     log(ask, last, bid, spread, result[-1], change_rate, trend)
     return trend
