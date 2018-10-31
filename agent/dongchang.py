@@ -44,7 +44,8 @@ exchanger = eval('ccxt.' + exchanger_name + "({ 'apiKey': API_KEY, 'secret': SEC
 
 uuid = str(uuid.uuid1()) 
 
-rates = []
+buy_rates = []
+sell_rates = []
 trend = None
 status = {}
 bought_status = {}
@@ -186,24 +187,25 @@ def wait_to_fill():
     return order
 
 def check_trend():
-    global rates
+    global buy_rates
+    global sell_rates
     result = [0]
     change_rate = 0
     trend = 'NONE'
     ticker = exchanger.fetch_ticker(SYMBOL)
     last = ticker['last']
     ask, bid, spread = get_ticker(exchanger)
-    if len(rates) >= PERIOD_BUY:
-        if last > max(rates):
+    if len(buy_rates) >= PERIOD_BUY:
+        if last > max(buy_rates):
             trend = 'UP'
-    if len(rates) >= PERIOD_SELL:
-        if last < min(rates):
+        buy_rates.pop(0)
+    if len(sell_rates) >= PERIOD_SELL:
+        if last < min(sell_rates):
             trend = 'DOWN'
-
-    if len(rates) > RATES_SIZE_MAX:
-        rates.pop(0)
+        sell_rates.pop(0)
             
-    rates.append(last)
+    buy_rates.append(last)
+    sell_rates.append(last)
     log(ask, last, bid, spread, trend)
     return trend
 
