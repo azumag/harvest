@@ -33,6 +33,7 @@ DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', (0.00000001*random.gau
 DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', (0.00000001*random.gauss(10000, 10000))))
 API_KEY = read_environ('API_KEY', None)
 SECRET = read_environ('SECRET', None)
+SYMBOL = read_environ('SYMBOL', 'BTC/JPY')
 
 sleep(INTERVAL)
 
@@ -43,7 +44,6 @@ uuid = str(uuid.uuid1())
 
 rates = []
 trend = None
-SYMBOL = 'BTC/JPY'
 status = {}
 bought_status = {}
 sold_status = {}
