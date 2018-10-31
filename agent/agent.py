@@ -53,13 +53,14 @@ total_cost = 0
 
 def show_options():
     return "`" + uuid + "`\n" \
+        "TOTAL: " + str(total_profit) + "\n" \
+        "SYMBOL: " + SYMBOL + "\n" \
         "PAYMENT: " + str(PAYMENT) + "\n" \
         "PERIOD: " + str(PERIOD) + "\n" \
         "DECISION_RATE_UP: " + str(DECISION_RATE_UP) + "\n" \
         "DECISION_RATE_DOWN: " + str(DECISION_RATE_DOWN) + "\n" \
         "SLEEP: " + str(INTERVAL) + "\n" \
         "LIFE: " + str(LIFE) + "\n" \
-        "TOTAL: " + str(total_profit) + "\n" \
 
 
 def get_ticker(exchange):
