@@ -103,6 +103,8 @@ def main():
         except:
             if slack_url:
                 notify(uuid, 'ERROR RAISED', str(sys.exc_info()), ['text', 'pretext'])
+                notify('DIED', uuid, show_options(), ['text', 'pretext']) 
+            died_clean(state)
             log('ERROR RAISED' + str(sys.exc_inf()))
             traceback.print_exc()
             return 1
