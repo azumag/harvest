@@ -30,8 +30,9 @@ INSTANCE_COST = float(read_environ('INSTANCE_COST', 0.0002))
 LIFE = int(read_environ('LIFE', random.gauss(8, 8)))
 INTERVAL = int(read_environ('INTERVAL', random.gauss(60, 60)))
 PAYMENT = float(read_environ('PAYMENT', 0.0001*random.gauss(PAYMENT_RANGE, PAYMENT_RANGE)))
-PERIOD_BUY = int(read_environ('PERIOD_BUY', random.gauss(256, 256)))
-PERIOD_SELL = int(read_environ('PERIOD_SELL', random.gauss(256, 256)))
+PERIOD_BUY = int(read_environ('PERIOD_BUY', random.gauss(40, 40)))
+PERIOD_SELL = int(read_environ('PERIOD_SELL', random.gauss(20, 20)))
+RATES_SIZE_MAX = int(read_environ('RATES_SIZE_MAX', random.gauss(10000, 10000)))
 API_KEY = read_environ('API_KEY', None)
 SECRET = read_environ('SECRET', None)
 SYMBOL = read_environ('SYMBOL', 'BTC/JPY')
@@ -198,6 +199,9 @@ def check_trend():
     if len(rates) >= PERIOD_SELL:
         if last < min(rates):
             trend = 'DOWN'
+
+    if len(rates) > RATES_SIZE_MAX:
+        rates.pop(0)
             
     rates.append(last)
     log(ask, last, bid, spread, trend)

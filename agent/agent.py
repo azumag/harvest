@@ -30,7 +30,8 @@ INSTANCE_COST = float(read_environ('INSTANCE_COST', 0.0002))
 LIFE = int(read_environ('LIFE', random.gauss(8, 8)))
 INTERVAL = int(read_environ('INTERVAL', random.gauss(60, 60)))
 PAYMENT = float(read_environ('PAYMENT', 0.0001*random.gauss(PAYMENT_RANGE, PAYMENT_RANGE)))
-PERIOD = int(read_environ('PERIOD', random.gauss(256, 256)))
+PERIOD = int(read_environ('PERIOD', random.gauss(26, 26)))
+RATES_SIZE_MAX = int(read_environ('RATES_SIZE_MAX', random.gauss(10000, 10000)))
 DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', (0.00000001*random.gauss(10000, 10000))))
 DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', (0.00000001*random.gauss(10000, 10000))))
 API_KEY = read_environ('API_KEY', None)
@@ -199,6 +200,9 @@ def check_trend():
         result = ema(rates, PERIOD)
         change_rate = (result[-1] / result[-2])
         trend = "UP" if (1 + DECISION_RATE_UP < change_rate) else "DOWN" if (1 - DECISION_RATE_DOWN > change_rate) else "NONE"
+        
+    if len(rates) > RATES_SIZE_MAX
+        rates.pop(0)
     log(ask, last, bid, spread, result[-1], change_rate, trend)
     return trend
 
