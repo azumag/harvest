@@ -16,4 +16,5 @@ services:
       - SECRET=$SECRET
       - SLACK_URL=$SLACK_URL
       - SYMBOL=$SYMBOL
+      - PAYMENT_RANGE=$PAYMENT_RANGE
     tty: true
