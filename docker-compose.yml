@@ -5,7 +5,7 @@ services:
     volumes:
       - ./:/usr/src/app
      
-  agent:
+  agent: &agent
     build: ./agent
     restart: always
     volumes:
@@ -18,3 +18,8 @@ services:
       - SYMBOL=$SYMBOL
       - PAYMENT_RANGE=$PAYMENT_RANGE
     tty: true
+
+  dongchang:
+    <<: *agent
+    entrypoint: 'python dongchang.py'
+

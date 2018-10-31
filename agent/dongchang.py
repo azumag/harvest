@@ -30,9 +30,8 @@ INSTANCE_COST = float(read_environ('INSTANCE_COST', 0.0002))
 LIFE = int(read_environ('LIFE', random.gauss(8, 8)))
 INTERVAL = int(read_environ('INTERVAL', random.gauss(60, 60)))
 PAYMENT = float(read_environ('PAYMENT', 0.0001*random.gauss(PAYMENT_RANGE, PAYMENT_RANGE)))
-PERIOD = int(read_environ('PERIOD', random.gauss(256, 256)))
-DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', (0.00000001*random.gauss(10000, 10000))))
-DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', (0.00000001*random.gauss(10000, 10000))))
+PERIOD_BUY = int(read_environ('PERIOD_BUY', random.gauss(256, 256)))
+PERIOD_SELL = int(read_environ('PERIOD_SELL', random.gauss(256, 256)))
 API_KEY = read_environ('API_KEY', None)
 SECRET = read_environ('SECRET', None)
 SYMBOL = read_environ('SYMBOL', 'BTC/JPY')
@@ -58,9 +57,8 @@ def show_options():
         "TOTAL: " + str(total_profit) + "\n" \
         "SYMBOL: " + SYMBOL + "\n" \
         "PAYMENT: " + str(PAYMENT) + "\n" \
-        "PERIOD: " + str(PERIOD) + "\n" \
-        "DECISION_RATE_UP: " + str(DECISION_RATE_UP) + "\n" \
-        "DECISION_RATE_DOWN: " + str(DECISION_RATE_DOWN) + "\n" \
+        "PERIOD_B: " + str(PERIOD_BUY) + "\n" \
+        "PERIOD_S: " + str(PERIOD_SELL) + "\n" \
         "SLEEP: " + str(INTERVAL) + "\n" \
         "LIFE: " + str(LIFE) + "\n" \
 
@@ -78,7 +76,7 @@ def notify(title, pretext, text, mrkdwn_in):
     attachments = []
     attachment = {"title": title, "pretext": pretext, "text": text, "mrkdwn_in": mrkdwn_in}
     attachments.append(attachment)
-    slack.notify(attachments=attachments, username='Harvest', icon_emoji=":moneybag:")
+    slack.notify(attachments=attachments, username='Harvest:dongchang', icon_emoji=":moneybag:")
     log(attachments)
 
 def main():
@@ -194,12 +192,15 @@ def check_trend():
     ticker = exchanger.fetch_ticker(SYMBOL)
     last = ticker['last']
     ask, bid, spread = get_ticker(exchanger)
+    if len(rates) >= PERIOD_BUY:
+        if last > max(rates):
+            trend = 'UP'
+    if len(rates) >= PERIOD_SELL:
+        if last < min(rates):
+            trend = 'DOWN'
+            
     rates.append(last)
-    if len(rates) >= PERIOD:
-        result = ema(rates, PERIOD)
-        change_rate = (result[-1] / result[-2])
-        trend = "UP" if (1 + DECISION_RATE_UP < change_rate) else "DOWN" if (1 - DECISION_RATE_DOWN > change_rate) else "NONE"
-    log(ask, last, bid, spread, result[-1], change_rate, trend)
+    log(ask, last, bid, spread, trend)
     return trend
 
 if slack_url:
