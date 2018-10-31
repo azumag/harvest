@@ -15,4 +15,5 @@ services:
       - API_KEY=$API_KEY
       - SECRET=$SECRET
       - SLACK_URL=$SLACK_URL
+      - SYMBOL=$SYMBOL
     tty: true
