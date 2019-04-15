@@ -30,10 +30,8 @@ INSTANCE_COST = float(read_environ('INSTANCE_COST', 0.0002))
 LIFE = int(read_environ('LIFE', random.gauss(8, 8)))
 INTERVAL = int(read_environ('INTERVAL', random.gauss(60, 60)))
 PAYMENT = float(read_environ('PAYMENT', 0.0001*random.gauss(PAYMENT_RANGE, PAYMENT_RANGE)))
-PERIOD = int(read_environ('PERIOD', random.gauss(26, 26)))
-RATES_SIZE_MAX = int(read_environ('RATES_SIZE_MAX', random.gauss(10000, 10000)))
-DECISION_RATE_UP = float(read_environ('DECISION_RATE_UP', (0.00000001*random.gauss(10000, 10000))))
-DECISION_RATE_DOWN = float(read_environ('DECISION_RATE_DOWN', (0.00000001*random.gauss(10000, 10000))))
+PERIOD_BUY = int(read_environ('PERIOD_BUY', random.gauss(40, 40)))
+PERIOD_SELL = int(read_environ('PERIOD_SELL', random.gauss(20, 20)))
 API_KEY = read_environ('API_KEY', None)
 SECRET = read_environ('SECRET', None)
 SYMBOL = read_environ('SYMBOL', 'BTC/JPY')
@@ -45,7 +43,8 @@ exchanger = eval('ccxt.' + exchanger_name + "({ 'apiKey': API_KEY, 'secret': SEC
 
 uuid = str(uuid.uuid1()) 
 
-rates = []
+buy_rates = []
+sell_rates = []
 trend = None
 status = {}
 bought_status = {}
@@ -59,12 +58,10 @@ def show_options():
         "TOTAL: " + str(total_profit) + "\n" \
         "SYMBOL: " + SYMBOL + "\n" \
         "PAYMENT: " + str(PAYMENT) + "\n" \
-        "PERIOD: " + str(PERIOD) + "\n" \
-        "DECISION_RATE_UP: " + str(DECISION_RATE_UP) + "\n" \
-        "DECISION_RATE_DOWN: " + str(DECISION_RATE_DOWN) + "\n" \
+        "PERIOD_B: " + str(PERIOD_BUY) + "\n" \
+        "PERIOD_S: " + str(PERIOD_SELL) + "\n" \
         "SLEEP: " + str(INTERVAL) + "\n" \
         "LIFE: " + str(LIFE) + "\n" \
-        "RATES_SIZE_MAX: " + str(RATES_SIZE_MAX) + "\n" \
 
 
 def get_ticker(exchange):
@@ -80,10 +77,11 @@ def notify(title, pretext, text, mrkdwn_in):
     attachments = []
     attachment = {"title": title, "pretext": pretext, "text": text, "mrkdwn_in": mrkdwn_in}
     attachments.append(attachment)
-    slack.notify(attachments=attachments, username='Harvest', icon_emoji=":moneybag:")
+    slack.notify(attachments=attachments, username='Harvest:dongchang', icon_emoji=":moneybag:")
     log(attachments)
 
-def main():
+state
+def dongchang(request):
     global trend
     global total_cost
     state = 'start'
@@ -99,7 +97,6 @@ def main():
             state = eval(state+"()")
             if check_life():
                 died_clean(state)
-                # if check_life(): # again
                 notify('DIED', uuid, show_options(), ['text', 'pretext']) 
                 log('DIED', uuid, show_options()) 
                 break
@@ -190,22 +187,26 @@ def wait_to_fill():
     return order
 
 def check_trend():
-    global rates
+    global buy_rates
+    global sell_rates
     result = [0]
     change_rate = 0
     trend = 'NONE'
     ticker = exchanger.fetch_ticker(SYMBOL)
     last = ticker['last']
     ask, bid, spread = get_ticker(exchanger)
-    rates.append(last)
-    if len(rates) >= PERIOD:
-        result = ema(rates, PERIOD)
-        change_rate = (result[-1] / result[-2])
-        trend = "UP" if (1 + DECISION_RATE_UP < change_rate) else "DOWN" if (1 - DECISION_RATE_DOWN > change_rate) else "NONE"
-        
-    if len(rates) > RATES_SIZE_MAX:
-        rates.pop(0)
-    log(ask, last, bid, spread, result[-1], change_rate, trend)
+    if len(buy_rates) >= PERIOD_BUY:
+        if last > max(buy_rates):
+            trend = 'UP'
+        buy_rates.pop(0)
+    if len(sell_rates) >= PERIOD_SELL:
+        if last < min(sell_rates):
+            trend = 'DOWN'
+        sell_rates.pop(0)
+            
+    buy_rates.append(last)
+    sell_rates.append(last)
+    log(ask, last, bid, spread, trend)
     return trend
 
 if slack_url:

@@ -1,0 +1,5 @@
+ccxt
+# slackweb==1.0.5
+pyti
+PrettyTable 
+google-cloud-datastore
