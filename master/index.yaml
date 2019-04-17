@@ -1,0 +1,7 @@
+indexes:
+- kind: Rate 
+  properties: 
+  - name: exchanger 
+  - name: symbol 
+  - name: created_at 
+    direction: desc
