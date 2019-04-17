@@ -19,8 +19,9 @@ exports.master = (req, res) => {
     // console.log(data)
     data.forEach((indv) => {
       console.log(indv);
-      if (indv.life === 0 && indv.total_profit > 0)
+      if (indv.life === 0 && indv.total_profit > 0) {
         cloneIndividual(indv);
+      }
       publishMessage(indv);
     });
     if (data.length <= numIndividuals) {
@@ -31,6 +32,13 @@ exports.master = (req, res) => {
     res.status(200);
     res.end();
   });
+}
+
+
+exports.createRandomIndividual = (req, res) => {
+  newRandomIndividual()
+  res.status(200);
+  res.end();
 }
 
 function getRandomInt(max) {
@@ -70,7 +78,22 @@ function newRandomIndividual() {
       strategy: 'dongchang',
       state: 'neutral'
     },
+    'ema': {
+      life,
+      lifespan: life,
+      payment: Math.abs(0.0001*normRand(100, 100)),
+      period: Math.abs(Math.floor(normRand(26, 26))),
+      limit : Math.abs(Math.floor(normRand(10000, 10000))),
+      total_profit: 0.0,
+      exchanger: exchangers[getRandomInt(exchangers.length)],
+      symbol: symbols[getRandomInt(symbols.length)],
+      decision_rate_up: (0.00000001*normRand(10000, 10000)),
+      decision_rate_down: (0.00000001*normRand(10000, 10000)),
+      strategy: 'ema',
+      state: 'neutral'
+    },
   }
+
 
   const strategy_names = Object.keys(strategies);
   const strategy_name = strategy_names[getRandomInt(strategy_names.length)]
@@ -99,7 +122,8 @@ async function saveIndividual(individual) {
 
 async function publishMessage(individual) {
   individual['id'] = individual[datastore.KEY].id;
-  const topicName = individual.strategy;
+  // const topicName = individual.strategy;
+  const topicName = 'agent';
   const dataBuffer = Buffer.from(JSON.stringify(individual));
   await pubsub.topic(topicName).publish(dataBuffer);
 }

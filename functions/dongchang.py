@@ -80,7 +80,6 @@ def notify(title, pretext, text, mrkdwn_in):
     slack.notify(attachments=attachments, username='Harvest:dongchang', icon_emoji=":moneybag:")
     log(attachments)
 
-state
 def dongchang(request):
     global trend
     global total_cost

@@ -1,5 +1,5 @@
 ccxt
-# slackweb==1.0.5
+slackweb==1.0.5
 pyti
 PrettyTable 
 google-cloud-datastore

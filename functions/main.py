@@ -10,7 +10,7 @@ import json
 import logging
 import urllib.request
 import traceback
-# import slackweb
+import slackweb
 from time import sleep
 from datetime import datetime
 from google.cloud import datastore
@@ -29,6 +29,8 @@ def read_environ(key, default):
 # ----- CONFIGURATION -----#
 API_KEY = read_environ('API_KEY', None)
 SECRET = read_environ('SECRET', None)
+slack_url = read_environ('SLACK_URL', None)
+slack = slackweb.Slack(url=slack_url)
 
 # --- globals ----
 EXCHANGER_CONST = {
@@ -43,6 +45,45 @@ def get_ticker(exchange, symbol):
     ask = orderbook['asks'][0][0] if len (orderbook['asks']) > 0 else None
     spread = (ask - bid) if (bid and ask) else None
     return ask, bid, spread
+
+def show_params_ema(params):
+    return "`" + params['exchanger'] + "` : `" + params['symbol'] + "`\n" \
+        "TOTAL: " + str(params['total_profit']) + "\n" \
+        "PAYMENT: " + str(params['payment']) + "\n" \
+        "PERIOD: " + str(params['period']) + "\n" \
+        "DECISION_RATE_UP: " + str(params['decision_rate_up']) + "\n" \
+        "DECISION_RATE_DOWN: " + str(params['decision_rate_down']) + "\n" \
+        "LIMIT: " + str(params['limit']) + "\n" \
+        "LIFE: " + str(params['lifespan']) + "\n" \
+
+def show_params_dongchang(params):
+    return "`" + params['exchanger'] + "` : `" + params['symbol'] + "`\n" \
+        "TOTAL: " + str(params['total_profit']) + "\n" \
+        "PAYMENT: " + str(params['payment']) + "\n" \
+        "PERIOD_B: " + str(params['period_buy']) + "\n" \
+        "PERIOD_S: " + str(params['period_sell']) + "\n" \
+        "LIFE: " + str(params['lifespan']) + "\n" \
+
+def show_bought(params):
+    return "`" + params['exchanger'] + "` : `" + params['symbol'] + "`\n" \
+        "PRICE: " + str(params['bought_price']) + "\n" \
+        "AMOUNT: " + str(params['payment']) + "\n" \
+        "FEE: " + str(params['bought_fee']) + "\n" \
+        "LIFE: " + str(params['life']) + '/' + str(params['lifespan']) + "\n" \
+            
+def show_profit(params):
+    return "`" + params['exchanger'] + "` : `" + params['symbol'] + "`\n" \
+        "PROFIT: " + str(params['total_profit']) + "\n" \
+        "FEE: " + str(params['bought_fee']+params['sold_fee']) + "\n" \
+        "LIFE: " + str(params['life']) + '/' + str(params['lifespan']) + "\n" \
+
+def notify(title, pretext, text, mrkdwn_in, strategy):
+    if slack_url == None:
+        return
+    attachments = []
+    attachment = {"title": title, "pretext": pretext, "text": text, "mrkdwn_in": mrkdwn_in}
+    attachments.append(attachment)
+    slack.notify(attachments=attachments, username='Harvest:' + strategy, icon_emoji=":moneybag:")
 
 def rate_store(request):
     exchangers = ['bitbank']
@@ -69,11 +110,13 @@ def rate_store(request):
 
             datastore_client.put(rates)
 
-def dongchang(event, context):
+# def dongchang(event, context):
+def agent(event, context):
     params = json.loads(base64.b64decode(event['data']).decode('ascii'))
     try:
         logging.info(params)
-        trend = check_trend_dongchang(params)
+        trend = eval('check_trend_'+params['strategy']+'(params)')
+        # trend = check_trend_dongchang(params)
         logging.info(trend)
         params = state_transition(params, trend)
         update_state(params)
@@ -101,6 +144,7 @@ def state_transition(params, trend):
             state = 'bought'
             params['bought_price'] = order['cost']
             params['bought_fee'] = order['cost'] * trading_fee
+            notify('Bought', params['id'], show_bought(params), ['text', 'pretext'], params['strategy']) 
     elif state == 'bought':
         if trend == 'DOWN':
             state = 'sell'
@@ -116,18 +160,10 @@ def state_transition(params, trend):
             params['sold_price'] = order['cost']
             params['sold_fee'] = order['cost'] * trading_fee
     elif state == 'sold':
-        # TODO: cost fee
-        # bought * 0.0015
-        # sold * 0.0015
         profit = params['sold_price'] - params['bought_price']
         trading_fees = params['sold_fee'] + params['bought_fee']
         params['total_profit'] += (profit - trading_fees)
-        # logging.info(bought_price, sold_price, profit, total_profit)
-        # notify(uuid, 'profit', \
-        #         "Profit: " + str(profit) + \
-        #         "\n Total: " + str(total_profit) + \
-        #         "\n Cost: " + str(total_cost) \
-        #         , ["text", "pretext"])
+        notify('Sold', params['id'], show_profit(params), ['text', 'pretext'], params['strategy']) 
         state = 'neutral'
 
     params['state'] = state
@@ -142,7 +178,7 @@ def state_transition(params, trend):
 def update_state(params):
     key = datastore_client.key('Individual', int(params['id']))
     indv = datastore.Entity(key=key)
-    del(params['id'])
+    
     params['life'] -= 1
     if params['life'] == 0 and params['state'] == 'bought':
         params['state'] = 'sell'
@@ -150,11 +186,18 @@ def update_state(params):
     if params['life'] <= 0 and (params['state'] == 'wait_to_fill_sell' or params['state'] == 'sold'):
         params['life'] = 0
 
+    if params['life'] < 0:
+        died_method = 'show_params_' + params['strategy'] + '(params)'
+        notify('DIED', params['id'], eval(died_method), ['text', 'pretext'], params['strategy']) 
+
+    del(params['id'])
+
     indv.update(params)
     datastore_client.put(indv)
 
 def check_trend_dongchang(params):
-    rates = get_rates(params)
+    limit = max([params['period_buy'], params['period_sell']])
+    rates = get_rates(params, limit)
     newest_rate = rates[0]
     buy_rates  = [ rate['last'] for rate in rates[1:params['period_buy']]]
     sell_rates = [ rate['last'] for rate in rates[1:params['period_sell']]]
@@ -165,12 +208,21 @@ def check_trend_dongchang(params):
         return 'DOWN'
     return None
 
-def get_rates(params):
+def check_trend_ema(params):
+    limit = params['limit']
+    rates = [ rate['last'] for rate in get_rates(params, limit) ]
+
+    result = ema(rates, params['period'])
+    change_rate = (result[-1] / result[-2])
+    trend = "UP" if (1 + params['decision_rate_up'] < change_rate) else "DOWN" if (1 - params['decision_rate_down'] > change_rate) else None
+    
+    return trend
+
+
+def get_rates(params, limit):
     query = datastore_client.query(kind='Rate')
     query.add_filter('exchanger', '=', params['exchanger'])
     query.add_filter('symbol', '=', params['symbol'])
     query.order = ['-created_at']
-    return list(query.fetch(max([params['period_buy'], params['period_sell']])))
- 
-
+    return list(query.fetch(limit))
  
