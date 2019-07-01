@@ -162,7 +162,7 @@ def state_transition(params, trend):
     elif state == 'sold':
         profit = params['sold_price'] - params['bought_price']
         trading_fees = params['sold_fee'] + params['bought_fee']
-        params['total_profit'] += (profit - trading_fees)
+        params['total_profit'] += params['total_profit'] + (profit - trading_fees)
         notify('Sold', params['id'], show_profit(params), ['text', 'pretext'], params['strategy']) 
         state = 'neutral'
 

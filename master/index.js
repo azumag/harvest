@@ -34,7 +34,6 @@ exports.master = (req, res) => {
   });
 }
 
-
 exports.createRandomIndividual = (req, res) => {
   newRandomIndividual()
   res.status(200);
