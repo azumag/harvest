@@ -208,6 +208,21 @@ def check_trend_dongchang(params):
         return 'DOWN'
     return None
 
+def check_trend_rev_dongchang(params):
+    limit = max([params['period_buy'], params['period_sell']])
+    rates = get_rates(params, limit)
+    newest_rate = rates[0]
+    buy_rates  = [ rate['last'] for rate in rates[1:params['period_buy']]]
+    sell_rates = [ rate['last'] for rate in rates[1:params['period_sell']]]
+    # logging.info(newest_rate, max(buy_rates), min(sell_rates))
+    if newest_rate['last'] > max(buy_rates):
+        return 'DOWN'
+    if newest_rate['last'] < min(sell_rates):
+        return 'UP'
+    return None
+
+
+
 def check_trend_ema(params):
     limit = params['limit']
     rates = [ rate['last'] for rate in get_rates(params, limit) ]
