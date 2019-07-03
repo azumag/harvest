@@ -7,7 +7,7 @@ const pubsub = new PubSub();
 
 const exchangers = ['bitbank']
 const symbols = ['BTC/JPY', 'XRP/JPY', 'MONA/JPY', 'BCH/JPY']
-const numIndividuals = 25
+const numIndividuals = 15
 
 exports.master = (req, res) => {
   // invoke each individuals strategy
@@ -34,6 +34,7 @@ exports.master = (req, res) => {
   });
 }
 
+
 exports.createRandomIndividual = (req, res) => {
   newRandomIndividual()
   res.status(200);
@@ -58,12 +59,13 @@ function normRand(m, s) {
 async function cloneIndividual(indv) {
   indv.life = indv.lifespan;
   indv.total_profit = 0.0;
+  indv.state = 'neutral'
   saveIndividual(indv)
   saveIndividual(indv)
 }
 
 function newRandomIndividual() {
-  const life = Math.abs(Math.floor(normRand(100, 100)))
+  const life = Math.abs(Math.floor(normRand(1000, 1000)))
   const strategies = {
     'dongchang': {
       life,
@@ -75,6 +77,18 @@ function newRandomIndividual() {
       exchanger: exchangers[getRandomInt(exchangers.length)],
       symbol: symbols[getRandomInt(symbols.length)],
       strategy: 'dongchang',
+      state: 'neutral'
+    },
+    'rev_dongchang': {
+      life,
+      lifespan: life,
+      payment: Math.abs(0.0001*normRand(100, 100)),
+      period_buy: Math.abs(Math.floor(normRand(40, 40))),
+      period_sell: Math.abs(Math.floor(normRand(20, 20))),
+      total_profit: 0.0,
+      exchanger: exchangers[getRandomInt(exchangers.length)],
+      symbol: symbols[getRandomInt(symbols.length)],
+      strategy: 'rev_dongchang',
       state: 'neutral'
     },
     'ema': {

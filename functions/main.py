@@ -64,6 +64,14 @@ def show_params_dongchang(params):
         "PERIOD_S: " + str(params['period_sell']) + "\n" \
         "LIFE: " + str(params['lifespan']) + "\n" \
 
+def show_params_rev_dongchang(params):
+    return "`" + params['exchanger'] + "` : `" + params['symbol'] + "`\n" \
+        "TOTAL: " + str(params['total_profit']) + "\n" \
+        "PAYMENT: " + str(params['payment']) + "\n" \
+        "PERIOD_B: " + str(params['period_buy']) + "\n" \
+        "PERIOD_S: " + str(params['period_sell']) + "\n" \
+        "LIFE: " + str(params['lifespan']) + "\n" \
+
 def show_bought(params):
     return "`" + params['exchanger'] + "` : `" + params['symbol'] + "`\n" \
         "PRICE: " + str(params['bought_price']) + "\n" \
@@ -73,7 +81,8 @@ def show_bought(params):
             
 def show_profit(params):
     return "`" + params['exchanger'] + "` : `" + params['symbol'] + "`\n" \
-        "PROFIT: " + str(params['total_profit']) + "\n" \
+        "PROFIT: " + str(params['profit']) + "\n" \
+        "TOTAL_PROFIT: " + str(params['total_profit']) + "\n" \
         "FEE: " + str(params['bought_fee']+params['sold_fee']) + "\n" \
         "LIFE: " + str(params['life']) + '/' + str(params['lifespan']) + "\n" \
 
@@ -162,7 +171,8 @@ def state_transition(params, trend):
     elif state == 'sold':
         profit = params['sold_price'] - params['bought_price']
         trading_fees = params['sold_fee'] + params['bought_fee']
-        params['total_profit'] += params['total_profit'] + (profit - trading_fees)
+        params['profit'] = profit
+        params['total_profit'] += (profit - trading_fees)
         notify('Sold', params['id'], show_profit(params), ['text', 'pretext'], params['strategy']) 
         state = 'neutral'
 
@@ -197,47 +207,50 @@ def update_state(params):
 
 def check_trend_dongchang(params):
     limit = max([params['period_buy'], params['period_sell']])
-    rates = get_rates(params, limit)
-    newest_rate = rates[0]
-    buy_rates  = [ rate['last'] for rate in rates[1:params['period_buy']]]
-    sell_rates = [ rate['last'] for rate in rates[1:params['period_sell']]]
+    trades = get_trades(params, limit)
+    newest_trade = trades[0]
+    buy_rates  = [ trade['price'] for trade in trades[1:params['period_buy']]]
+    sell_rates = [ trade['price'] for trade in trades[1:params['period_sell']]]
     # logging.info(newest_rate, max(buy_rates), min(sell_rates))
-    if newest_rate['last'] > max(buy_rates):
+    if newest_trade['price'] > max(buy_rates):
         return 'UP'
-    if newest_rate['last'] < min(sell_rates):
+    if newest_trade['price'] < min(sell_rates):
         return 'DOWN'
     return None
 
 def check_trend_rev_dongchang(params):
     limit = max([params['period_buy'], params['period_sell']])
-    rates = get_rates(params, limit)
-    newest_rate = rates[0]
-    buy_rates  = [ rate['last'] for rate in rates[1:params['period_buy']]]
-    sell_rates = [ rate['last'] for rate in rates[1:params['period_sell']]]
+    trades = get_trades(params, limit)
+    newest_trade = trades[0]
+    buy_rates  = [ trade['price'] for trade in trades[1:params['period_buy']]]
+    sell_rates = [ trade['price'] for trade in trades[1:params['period_sell']]]
     # logging.info(newest_rate, max(buy_rates), min(sell_rates))
-    if newest_rate['last'] > max(buy_rates):
+    if newest_trade['price'] > max(buy_rates):
         return 'DOWN'
-    if newest_rate['last'] < min(sell_rates):
+    if newest_trade['price'] < min(sell_rates):
         return 'UP'
     return None
 
 
-
 def check_trend_ema(params):
     limit = params['limit']
-    rates = [ rate['last'] for rate in get_rates(params, limit) ]
+    prices = [ trade['price'] for trade in get_trades(params, limit) ]
 
-    result = ema(rates, params['period'])
+    result = ema(prices, params['period'])
     change_rate = (result[-1] / result[-2])
     trend = "UP" if (1 + params['decision_rate_up'] < change_rate) else "DOWN" if (1 - params['decision_rate_down'] > change_rate) else None
     
     return trend
 
 
-def get_rates(params, limit):
-    query = datastore_client.query(kind='Rate')
-    query.add_filter('exchanger', '=', params['exchanger'])
-    query.add_filter('symbol', '=', params['symbol'])
-    query.order = ['-created_at']
-    return list(query.fetch(limit))
+def get_trades(params, limit):
+    exchanger = eval('ccxt.' + params['exchanger'] + "()")
+    return exchanger.fetchTrades(params['symbol'])
+
+# def get_rates(params, limit):
+#     query = datastore_client.query(kind='Rate')
+#     query.add_filter('exchanger', '=', params['exchanger'])
+#     query.add_filter('symbol', '=', params['symbol'])
+#     query.order = ['-created_at']
+#     return list(query.fetch(limit))
  
