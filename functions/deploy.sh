@@ -1,0 +1,1 @@
+gcloud beta functions deploy agent --trigger-resource agent --trigger-event google.pubsub.topic.publish --runtime python37 --env-vars-file .env.yaml --memory 128 --project botcoin-188805
